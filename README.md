@@ -59,8 +59,13 @@ O ID da task é procurado no nome da branch, com fallback no título e corpo do 
     ```
 
 3. Pronto. Para times fora do space Tech (prefixo/status diferentes), passe
-   `with:` sobrescrevendo `task_prefix`, `team_id` e os `status_*`
-   (veja os inputs em `.github/workflows/clickup-pr-sync.yaml`).
+   `with:` sobrescrevendo `task_prefix`, `team_id` e os `status_*` — em **ambos**
+   os jobs: os inputs do PR sync estão em `.github/workflows/clickup-pr-sync.yaml`
+   e os do release sync (`status_done` etc.) em
+   `.github/workflows/clickup-release-sync.yaml`.
+4. Repos que mergeiam PRs direto na `main` (sem branch `dev`): passe
+   `dev_branch: main` no `with:` do job `pr-sync`, senão a transição
+   "PR mergeado → qa" nunca dispara.
 
 ### Requisitos do caller
 
