@@ -27,7 +27,7 @@ outputs:
     description: Current status order index, -1 when unknown (get-status only)
     value: ${{ steps.call.outputs.order }}
   applied:
-    description: Whether a guarded set actually changed the status
+    description: Whether a guarded set actually changed the status (set-status-guarded only)
     value: ${{ steps.call.outputs.applied }}
 runs:
   using: composite

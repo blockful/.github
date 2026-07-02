@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Offline tests for clickup.sh (status-order parsing only). Run: bash actions/clickup-api/clickup_test.sh
+# Offline tests for clickup.sh (status-order parsing and CLI arg guards). Run: bash actions/clickup-api/clickup_test.sh
 set -u
 cd "$(dirname "$0")"
 FAILS=0
@@ -15,11 +15,28 @@ assert_order() { # desc, expected, status-string
   fi
 }
 
+assert_exit() { # desc, expected_exit, args...
+  local desc="$1" expected="$2"; shift 2
+  bash clickup.sh "$@" >/dev/null 2>&1
+  local actual=$?
+  if [ "$actual" = "$expected" ]; then
+    echo "ok: $desc"
+  else
+    echo "FAIL: $desc — expected exit $expected, got $actual"
+    FAILS=$((FAILS + 1))
+  fi
+}
+
 assert_order "in progress"        "2"  "[2] in progress 🤠"
 assert_order "code review"        "3"  "[3] code review 🤓"
 assert_order "done"               "10" "[10] done ❤️‍🔥"
 assert_order "sem prefixo [N]"    "-1" "in review"
 assert_order "string vazia"       "-1" ""
+
+assert_exit "get-status sem args -> usage exit 2"      2 get-status
+assert_exit "set-status com 1 arg -> usage exit 2"     2 set-status DEV-1
+assert_exit "comando desconhecido -> usage exit 2"     2 bogus
+assert_exit "mark-done-many lista vazia -> exit 0"     0 mark-done-many "" "[10] done ❤️‍🔥"
 
 if [ "$FAILS" -gt 0 ]; then echo "$FAILS failure(s)"; exit 1; fi
 echo "all tests passed"

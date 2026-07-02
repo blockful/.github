@@ -7,7 +7,7 @@
 #   set-status <task_id> "<status>"           -> ok=
 #   set-status-guarded <task_id> "<status>"   -> ok=, applied= (skips when current order >= target order)
 #   comment <task_id> "<text>"                -> ok=
-#   mark-done-many "<ids newline-separated>" "<status>" -> loops set-status-guarded
+#   mark-done-many "<ids newline-separated>" "<status>" -> loops set-status-guarded, single aggregated ok=
 #
 # Env: CLICKUP_TOKEN, CLICKUP_TEAM_ID (required for API subcommands)
 # API failures never exit non-zero: they emit ::warning:: and ok=false.
@@ -75,17 +75,25 @@ comment() { # task_id text -> ok=
   fi
 }
 
+mark_done_many() { # newline-separated ids, status -> single ok= line
+  local all_ok=true task out
+  while IFS= read -r task; do
+    [ -n "$task" ] || continue
+    out="$(set_status_guarded "$task" "$2")"
+    grep -q '^ok=true' <<<"$out" || all_ok=false
+  done <<<"$1"
+  echo "ok=$all_ok"
+}
+
+usage() { echo "usage: clickup.sh status-order|get-status|set-status|set-status-guarded|comment|mark-done-many" >&2; exit 2; }
+
 cmd="${1:-}"; shift || true
 case "$cmd" in
   status-order)       status_order "${1:-}" ;;
-  get-status)         get_status "$1" ;;
-  set-status)         set_status "$1" "$2" ;;
-  set-status-guarded) set_status_guarded "$1" "$2" ;;
-  comment)            comment "$1" "$2" ;;
-  mark-done-many)
-    while IFS= read -r task; do
-      [ -n "$task" ] && set_status_guarded "$task" "$2"
-    done <<<"$1"
-    echo "ok=true" ;;
-  *) echo "usage: clickup.sh status-order|get-status|set-status|set-status-guarded|comment|mark-done-many" >&2; exit 2 ;;
+  get-status)         [ $# -ge 1 ] || usage; get_status "$1" ;;
+  set-status)         [ $# -ge 2 ] || usage; set_status "$1" "$2" ;;
+  set-status-guarded) [ $# -ge 2 ] || usage; set_status_guarded "$1" "$2" ;;
+  comment)            [ $# -ge 2 ] || usage; comment "$1" "$2" ;;
+  mark-done-many)     [ $# -ge 2 ] || usage; mark_done_many "$1" "$2" ;;
+  *) usage ;;
 esac
