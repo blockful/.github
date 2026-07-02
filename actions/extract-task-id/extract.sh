@@ -12,6 +12,11 @@ ACTOR="${ACTOR:-}"
 
 emit() { echo "found=$1"; echo "task_id=$2"; echo "skip_reason=$3"; }
 
+if ! [[ "$PREFIX" =~ ^[A-Za-z0-9_]+$ ]]; then
+  echo "::warning::Invalid task prefix '$PREFIX' (must be alphanumeric/underscore)" >&2
+  emit false "" invalid_prefix; exit 0
+fi
+
 case "$ACTOR" in
   "dependabot[bot]" | "github-actions[bot]" | "renovate[bot]")
     emit false "" bot; exit 0 ;;

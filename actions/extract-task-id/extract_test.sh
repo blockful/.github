@@ -29,6 +29,9 @@ assert_line "github-actions é pulado"     "skip_reason=bot" BRANCH="feat/DEV-5"
 assert_line "Version Packages é pulado"   "skip_reason=bot" BRANCH="changeset-release/dev" PR_TITLE="Version Packages" ACTOR=bruno
 assert_line "prefixo customizado"         "task_id=OPS-7"   BRANCH=fix/OPS-7-thing PREFIX=OPS ACTOR=bruno
 assert_line "prefixo não pega DEV"        "found=false"     BRANCH=feat/DEV-970 PREFIX=OPS ACTOR=bruno
+assert_line "prefixo com metachar falha fechado" "found=false"         BRANCH=feat/AxB-1 PREFIX="A.B" ACTOR=bruno
+assert_line "prefixo com metachar: razão"        "skip_reason=invalid_prefix" BRANCH=feat/AxB-1 PREFIX="A.B" ACTOR=bruno
+assert_line "ID dentro de URL no corpo"          "task_id=DEV-970"     BRANCH=feat/no-id PR_TITLE=fix PR_BODY="see https://app.clickup.com/t/DEV-970" ACTOR=bruno
 
 if [ "$FAILS" -gt 0 ]; then echo "$FAILS failure(s)"; exit 1; fi
 echo "all tests passed"
