@@ -24,7 +24,7 @@ outputs:
     description: The task ID (e.g. DEV-970), empty when not found
     value: ${{ steps.extract.outputs.task_id }}
   skip-reason:
-    description: "bot | none | empty when found"
+    description: "bot | invalid_prefix | none | empty when found"
     value: ${{ steps.extract.outputs.skip_reason }}
 runs:
   using: composite
