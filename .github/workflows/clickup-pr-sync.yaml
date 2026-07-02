@@ -1,0 +1,162 @@
+name: ClickUp PR sync
+
+on:
+  workflow_call:
+    inputs:
+      task_prefix:
+        type: string
+        default: "DEV"
+      team_id:
+        type: string
+        default: "90132341641"
+      dev_branch:
+        type: string
+        default: "dev"
+      status_in_progress:
+        type: string
+        default: "[2] in progress 🤠"
+      status_code_review:
+        type: string
+        default: "[3] code review 🤓"
+      status_changes_requested:
+        type: string
+        default: "[4] cr code changes 💢"
+      status_merged:
+        type: string
+        default: "[5] qa 😼"
+    secrets:
+      clickup_token:
+        required: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine scenario
+        id: scenario
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.event.ref_type }}
+          CREATED_REF: ${{ github.event.ref }}
+          ACTION: ${{ github.event.action }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+          MERGED: ${{ github.event.pull_request.merged }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          REVIEW_STATE: ${{ github.event.review.state }}
+          DEV_BRANCH: ${{ inputs.dev_branch }}
+        run: |
+          scenario=none
+          comment=false
+          branch=""
+          case "$EVENT_NAME" in
+            create)
+              if [ "$REF_TYPE" = "branch" ]; then scenario=in_progress; branch="$CREATED_REF"; fi ;;
+            pull_request)
+              branch="$HEAD_REF"
+              case "$ACTION" in
+                opened)
+                  if [ "$DRAFT" = "true" ]; then scenario=in_progress; else scenario=code_review; comment=true; fi ;;
+                ready_for_review)
+                  scenario=code_review; comment=true ;;
+                synchronize)
+                  scenario=maybe_back_to_review ;;
+                closed)
+                  if [ "$MERGED" = "true" ] && [ "$BASE" = "$DEV_BRANCH" ]; then scenario=merged; fi ;;
+              esac ;;
+            pull_request_review)
+              branch="$HEAD_REF"
+              if [ "$REVIEW_STATE" = "changes_requested" ]; then scenario=changes_requested; fi ;;
+          esac
+          {
+            echo "scenario=$scenario"
+            echo "comment=$comment"
+            echo "branch=$branch"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Extract task ID
+        id: task
+        if: steps.scenario.outputs.scenario != 'none'
+        uses: blockful/.github/actions/extract-task-id@main
+        with:
+          branch: ${{ steps.scenario.outputs.branch }}
+          pr-title: ${{ github.event.pull_request.title }}
+          pr-body: ${{ github.event.pull_request.body }}
+          prefix: ${{ inputs.task_prefix }}
+          actor: ${{ github.actor }}
+
+      - name: Warn when PR has no task reference
+        if: >-
+          steps.scenario.outputs.scenario != 'none' &&
+          steps.scenario.outputs.comment == 'true' &&
+          steps.task.outputs.found != 'true' &&
+          steps.task.outputs.skip-reason == 'none'
+        env:
+          PREFIX: ${{ inputs.task_prefix }}
+        run: |
+          echo "::warning::No ClickUp task reference (${PREFIX}-N) found in branch, PR title, or PR body."
+          echo "⚠️ Nenhuma task ClickUp (\`${PREFIX}-N\`) referenciada na branch, título ou corpo do PR." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Get current status (guard scenarios)
+        id: current
+        if: >-
+          steps.task.outputs.found == 'true' &&
+          steps.scenario.outputs.scenario == 'maybe_back_to_review'
+        uses: blockful/.github/actions/clickup-api@main
+        with:
+          token: ${{ secrets.clickup_token }}
+          team-id: ${{ inputs.team_id }}
+          operation: get-status
+          task-id: ${{ steps.task.outputs.task-id }}
+
+      - name: Decide target status
+        id: target
+        if: steps.task.outputs.found == 'true'
+        env:
+          SCENARIO: ${{ steps.scenario.outputs.scenario }}
+          CURRENT_ORDER: ${{ steps.current.outputs.order }}
+          S_IN_PROGRESS: ${{ inputs.status_in_progress }}
+          S_CODE_REVIEW: ${{ inputs.status_code_review }}
+          S_CHANGES_REQUESTED: ${{ inputs.status_changes_requested }}
+          S_MERGED: ${{ inputs.status_merged }}
+        run: |
+          target=""
+          guarded=false
+          case "$SCENARIO" in
+            in_progress)
+              target="$S_IN_PROGRESS"; guarded=true ;;
+            code_review)
+              target="$S_CODE_REVIEW" ;;
+            changes_requested)
+              target="$S_CHANGES_REQUESTED" ;;
+            maybe_back_to_review)
+              if [ "${CURRENT_ORDER:-}" = "4" ]; then target="$S_CODE_REVIEW"; fi ;;
+            merged)
+              target="$S_MERGED" ;;
+          esac
+          {
+            echo "target=$target"
+            echo "guarded=$guarded"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update status
+        if: steps.target.outputs.target != ''
+        uses: blockful/.github/actions/clickup-api@main
+        with:
+          token: ${{ secrets.clickup_token }}
+          team-id: ${{ inputs.team_id }}
+          operation: ${{ steps.target.outputs.guarded == 'true' && 'set-status-guarded' || 'set-status' }}
+          task-id: ${{ steps.task.outputs.task-id }}
+          value: ${{ steps.target.outputs.target }}
+
+      - name: Comment PR link on task
+        if: >-
+          steps.task.outputs.found == 'true' &&
+          steps.scenario.outputs.comment == 'true'
+        uses: blockful/.github/actions/clickup-api@main
+        with:
+          token: ${{ secrets.clickup_token }}
+          team-id: ${{ inputs.team_id }}
+          operation: comment
+          task-id: ${{ steps.task.outputs.task-id }}
+          value: "🔗 PR aberto por ${{ github.actor }}: ${{ github.event.pull_request.title }} — ${{ github.event.pull_request.html_url }}"
