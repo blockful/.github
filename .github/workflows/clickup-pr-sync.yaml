@@ -31,7 +31,9 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    permissions: {}
+    # contents: read is required to download this private repo's composite actions
+    permissions:
+      contents: read
     timeout-minutes: 5
     continue-on-error: true
     steps:
