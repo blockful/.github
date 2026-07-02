@@ -1,0 +1,82 @@
+name: ClickUp release sync
+
+on:
+  workflow_call:
+    inputs:
+      task_prefix:
+        type: string
+        default: "DEV"
+      team_id:
+        type: string
+        default: "90132341641"
+      status_done:
+        type: string
+        default: "[10] done ❤️‍🔥"
+      before:
+        description: Override the commit range start (for manual reprocessing)
+        type: string
+        default: ""
+      after:
+        description: Override the commit range end
+        type: string
+        default: ""
+    secrets:
+      clickup_token:
+        required: true
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect task IDs from the pushed range
+        id: collect
+        env:
+          BEFORE: ${{ inputs.before != '' && inputs.before || github.event.before }}
+          AFTER: ${{ inputs.after != '' && inputs.after || github.event.after }}
+          PREFIX: ${{ inputs.task_prefix }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo "Range: $BEFORE..$AFTER"
+          log="$(git log --format='%s%n%b' "$BEFORE..$AFTER" || true)"
+
+          # IDs directly present in commit messages (merge commits carry branch names)
+          ids="$(grep -oiE "${PREFIX}-[0-9]+" <<<"$log" | tr '[:lower:]' '[:upper:]' || true)"
+
+          # PR numbers from merge/squash commit subjects -> resolve head branch + title + body
+          prs="$(grep -oE '(Merge pull request #|\(#)[0-9]+' <<<"$log" | grep -oE '[0-9]+' | sort -u || true)"
+          for pr in $prs; do
+            meta="$(gh pr view "$pr" --json headRefName,title,body \
+              --jq '.headRefName + " " + .title + " " + (.body // "")' 2>/dev/null || true)"
+            more="$(grep -oiE "${PREFIX}-[0-9]+" <<<"$meta" | tr '[:lower:]' '[:upper:]' || true)"
+            ids="$ids"$'\n'"$more"
+          done
+
+          unique="$(sort -u <<<"$ids" | grep -v '^$' || true)"
+          count="$(grep -c . <<<"$unique" || true)"
+          echo "Tasks found ($count):"
+          echo "$unique"
+          {
+            echo "task_ids<<TASKS_EOF"
+            echo "$unique"
+            echo "TASKS_EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "### ClickUp release sweep" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tasks: ${count:-0}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "$unique" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Mark tasks done
+        if: steps.collect.outputs.task_ids != ''
+        uses: blockful/.github/actions/clickup-api@main
+        with:
+          token: ${{ secrets.clickup_token }}
+          team-id: ${{ inputs.team_id }}
+          operation: mark-done-many
+          task-id: ${{ steps.collect.outputs.task_ids }}
+          value: ${{ inputs.status_done }}
