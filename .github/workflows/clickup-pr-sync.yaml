@@ -31,6 +31,9 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions: {}
+    timeout-minutes: 5
+    continue-on-error: true
     steps:
       - name: Determine scenario
         id: scenario
