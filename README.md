@@ -4,30 +4,30 @@ Reusable GitHub Actions and workflows for the Blockful org.
 
 ## ClickUp ↔ GitHub sync
 
-Sincroniza tasks do ClickUp com a atividade do GitHub. O que faz:
+Syncs ClickUp tasks with GitHub activity. What it does:
 
-| Evento GitHub                               | Status ClickUp           |
+| GitHub event                                | ClickUp status           |
 | -------------------------------------------- | ------------------------ |
-| Branch com `DEV-XXX` pushada                | `[2] in progress 🤠`\*   |
-| PR draft aberto                             | `[2] in progress 🤠`\*   |
-| PR aberto (não-draft) ou `ready_for_review` | `[3] code review 🤓`     |
-| Review com changes requested                | `[4] cr code changes 💢` |
-| Novo push no PR estando em `[4]`            | `[3] code review 🤓`     |
-| PR mergeado em `dev`                        | `[5] qa 😼`              |
-| Commits chegam em `main` (release)          | `[10] done ❤️‍🔥`\*        |
+| Branch with `DEV-XXX` pushed                | `[2] in progress 🤠`\*   |
+| Draft PR opened                             | `[2] in progress 🤠`\*   |
+| PR opened (non-draft) or `ready_for_review` | `[3] code review 🤓`     |
+| Review with changes requested               | `[4] cr code changes 💢` |
+| New push while the task is in `[4]`         | `[3] code review 🤓`     |
+| PR merged into `dev`                        | `[5] qa 😼`              |
+| Commits land on `main` (release)            | `[10] done ❤️‍🔥`\*        |
 
-\* Com guarda: nunca rebaixa uma task que já esteja em status de ordem maior ou igual.
+\* Guarded: never downgrades a task already at an equal or higher status order.
 
-Além disso: comenta o link do PR na task quando ele abre, e emite um warning
-(não bloqueante) quando o PR não referencia nenhuma task. PRs de bots
-(dependabot, github-actions, renovate, "Version Packages") são ignorados.
+On top of that: it comments the PR link on the task when the PR opens, and emits a
+non-blocking warning when a PR references no task. Bot PRs (dependabot,
+github-actions, renovate, "Version Packages") are ignored.
 
-O ID da task é procurado no nome da branch, com fallback no título e corpo do PR.
+The task ID is extracted from the branch name, falling back to the PR title and body.
 
-### Adoção (qualquer repo da org)
+### Adoption (any repo in the org)
 
-1. Garanta que o repo tem acesso ao secret de org `CLICKUP_API_TOKEN`.
-2. Crie `.github/workflows/clickup.yaml`:
+1. Make sure the repo has access to the `CLICKUP_API_TOKEN` org secret.
+2. Create `.github/workflows/clickup.yaml`:
 
     ```yaml
     name: ClickUp sync
@@ -58,27 +58,29 @@ O ID da task é procurado no nome da branch, com fallback no título e corpo do 
           clickup_token: ${{ secrets.CLICKUP_API_TOKEN }}
     ```
 
-3. Pronto. Para times fora do space Tech (prefixo/status diferentes), passe
-   `with:` sobrescrevendo `task_prefix`, `team_id` e os `status_*` — em **ambos**
-   os jobs: os inputs do PR sync estão em `.github/workflows/clickup-pr-sync.yaml`
-   e os do release sync (`status_done` etc.) em
+3. Done. Teams outside the Tech space (different prefix/statuses) can pass `with:`
+   overriding `task_prefix`, `team_id`, and the `status_*` inputs — on **both**
+   jobs: the PR sync inputs live in `.github/workflows/clickup-pr-sync.yaml` and
+   the release sync ones (`status_done` etc.) in
    `.github/workflows/clickup-release-sync.yaml`.
-4. Repos que mergeiam PRs direto na `main` (sem branch `dev`): passe
-   `dev_branch: main` no `with:` do job `pr-sync`, senão a transição
-   "PR mergeado → qa" nunca dispara.
+4. Repos that merge PRs straight into `main` (no `dev` branch): pass
+   `dev_branch: main` in the `pr-sync` job's `with:`, otherwise the
+   "PR merged → qa" transition never fires.
 
-### Requisitos do caller
+### Caller requirements
 
-- O bloco `permissions:` acima é obrigatório: `release-sync` precisa de
-  `contents: read` (checkout) e `pull-requests: read` (`gh pr view`). Sem essas
-  permissões o `workflow_call` falha na validação, antes de qualquer step rodar.
+- The `permissions:` block above is required: `release-sync` needs
+  `contents: read` (checkout) and `pull-requests: read` (`gh pr view`). Without
+  them the `workflow_call` fails validation before any step runs.
+- This repo must stay **public**: public caller repos (like `anticapture`) cannot
+  call reusable workflows hosted in a private repo.
 
-### Limitações conhecidas
+### Known limitations
 
-- A integração **nunca bloqueia** merge/CI: falhas da API do ClickUp viram warnings
-  e os jobs rodam com `continue-on-error`.
-- Statuses sem prefixo `[N]` no nome desabilitam a guarda anti-rebaixamento
-  (o parse da ordem depende do prefixo numérico).
-- O evento `create` só dispara depois que o caller workflow existe na branch default.
-- "Changes requested" em review de quem não é dono do PR requer permissão de review
-  no repo (comportamento normal do GitHub).
+- The integration **never blocks** merges/CI: ClickUp API failures become warnings
+  and the jobs run with `continue-on-error`.
+- Statuses without a `[N]` prefix in their name disable the anti-downgrade guard
+  (order parsing depends on the numeric prefix).
+- The `create` event only fires once the caller workflow exists on the default branch.
+- "Changes requested" reviews from someone other than the PR author require review
+  permission on the repo (standard GitHub behavior).

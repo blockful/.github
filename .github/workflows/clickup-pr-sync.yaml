@@ -100,7 +100,7 @@ jobs:
           PREFIX: ${{ inputs.task_prefix }}
         run: |
           echo "::warning::No ClickUp task reference (${PREFIX}-N) found in branch, PR title, or PR body."
-          echo "⚠️ Nenhuma task ClickUp (\`${PREFIX}-N\`) referenciada na branch, título ou corpo do PR." >> "$GITHUB_STEP_SUMMARY"
+          echo "⚠️ No ClickUp task (\`${PREFIX}-N\`) referenced in the branch, PR title, or PR body." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Get current status (guard scenarios)
         id: current
@@ -166,4 +166,4 @@ jobs:
           team-id: ${{ inputs.team_id }}
           operation: comment
           task-id: ${{ steps.task.outputs.task-id }}
-          value: "🔗 PR aberto por ${{ github.actor }}: ${{ github.event.pull_request.title }} — ${{ github.event.pull_request.html_url }}"
+          value: "🔗 PR opened by ${{ github.actor }}: ${{ github.event.pull_request.title }} — ${{ github.event.pull_request.html_url }}"

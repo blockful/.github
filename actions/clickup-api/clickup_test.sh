@@ -30,13 +30,13 @@ assert_exit() { # desc, expected_exit, args...
 assert_order "in progress"        "2"  "[2] in progress 🤠"
 assert_order "code review"        "3"  "[3] code review 🤓"
 assert_order "done"               "10" "[10] done ❤️‍🔥"
-assert_order "sem prefixo [N]"    "-1" "in review"
-assert_order "string vazia"       "-1" ""
+assert_order "missing [N] prefix" "-1" "in review"
+assert_order "empty string"       "-1" ""
 
-assert_exit "get-status sem args -> usage exit 2"      2 get-status
-assert_exit "set-status com 1 arg -> usage exit 2"     2 set-status DEV-1
-assert_exit "comando desconhecido -> usage exit 2"     2 bogus
-assert_exit "mark-done-many lista vazia -> exit 0"     0 mark-done-many "" "[10] done ❤️‍🔥"
+assert_exit "get-status without args -> usage exit 2"  2 get-status
+assert_exit "set-status with 1 arg -> usage exit 2"    2 set-status DEV-1
+assert_exit "unknown command -> usage exit 2"          2 bogus
+assert_exit "mark-done-many empty list -> exit 0"      0 mark-done-many "" "[10] done ❤️‍🔥"
 
 if [ "$FAILS" -gt 0 ]; then echo "$FAILS failure(s)"; exit 1; fi
 echo "all tests passed"
