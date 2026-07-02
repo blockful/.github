@@ -1,0 +1,53 @@
+name: ClickUp API
+description: Calls the ClickUp API (get/set status, guarded set, comment, bulk mark-done). Failures emit warnings, never fail the job.
+inputs:
+  token:
+    description: ClickUp API token
+    required: true
+  team-id:
+    description: ClickUp workspace (team) ID
+    required: true
+  operation:
+    description: get-status | set-status | set-status-guarded | comment | mark-done-many
+    required: true
+  task-id:
+    description: Task custom ID (e.g. DEV-970). For mark-done-many, newline-separated list.
+    required: true
+  value:
+    description: Status name (set operations) or comment text (comment)
+    default: ""
+outputs:
+  ok:
+    description: "false when the API call failed after retry"
+    value: ${{ steps.call.outputs.ok }}
+  status:
+    description: Current status name (get-status only)
+    value: ${{ steps.call.outputs.status }}
+  order:
+    description: Current status order index, -1 when unknown (get-status only)
+    value: ${{ steps.call.outputs.order }}
+  applied:
+    description: Whether a guarded set actually changed the status
+    value: ${{ steps.call.outputs.applied }}
+runs:
+  using: composite
+  steps:
+    - id: call
+      shell: bash
+      env:
+        CLICKUP_TOKEN: ${{ inputs.token }}
+        CLICKUP_TEAM_ID: ${{ inputs.team-id }}
+        OPERATION: ${{ inputs.operation }}
+        TASK_ID: ${{ inputs.task-id }}
+        VALUE: ${{ inputs.value }}
+      run: |
+        case "$OPERATION" in
+          get-status)
+            bash "$GITHUB_ACTION_PATH/clickup.sh" get-status "$TASK_ID" >> "$GITHUB_OUTPUT" ;;
+          set-status | set-status-guarded | comment)
+            bash "$GITHUB_ACTION_PATH/clickup.sh" "$OPERATION" "$TASK_ID" "$VALUE" >> "$GITHUB_OUTPUT" ;;
+          mark-done-many)
+            bash "$GITHUB_ACTION_PATH/clickup.sh" mark-done-many "$TASK_ID" "$VALUE" >> "$GITHUB_OUTPUT" ;;
+          *)
+            echo "::error::unknown operation: $OPERATION"; exit 1 ;;
+        esac
