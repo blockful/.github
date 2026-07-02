@@ -1,0 +1,10 @@
+name: Selftest
+
+on:
+  workflow_dispatch:
+
+jobs:
+  call:
+    uses: ./.github/workflows/clickup-pr-sync.yaml
+    secrets:
+      clickup_token: ${{ secrets.CLICKUP_API_TOKEN }}
