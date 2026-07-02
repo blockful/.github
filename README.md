@@ -13,7 +13,7 @@ Syncs ClickUp tasks with GitHub activity. What it does:
 | PR opened (non-draft) or `ready_for_review` | `[3] code review 🤓`     |
 | Review with changes requested               | `[4] cr code changes 💢` |
 | New push while the task is in `[4]`         | `[3] code review 🤓`     |
-| PR merged into `dev`                        | `[5] qa 😼`              |
+| PR merged into `dev`                        | `[9] approved by qa 🏳️‍🌈` |
 | Commits land on `main` (release)            | `[10] done ❤️‍🔥`\*        |
 
 \* Guarded: never downgrades a task already at an equal or higher status order.

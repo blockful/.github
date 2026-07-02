@@ -23,7 +23,7 @@ on:
         default: "[4] cr code changes 💢"
       status_merged:
         type: string
-        default: "[5] qa 😼"
+        default: "[9] approved by qa 🏳️‍🌈"
     secrets:
       clickup_token:
         required: true
