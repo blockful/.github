@@ -35,6 +35,7 @@ assert_order "empty string"       "-1" ""
 
 assert_exit "get-status without args -> usage exit 2"  2 get-status
 assert_exit "set-status with 1 arg -> usage exit 2"    2 set-status DEV-1
+assert_exit "set-field with 2 args -> usage exit 2"    2 set-field DEV-1 field-uuid
 assert_exit "unknown command -> usage exit 2"          2 bogus
 assert_exit "mark-done-many empty list -> exit 0"      0 mark-done-many "" "[10] done ❤️‍🔥"
 

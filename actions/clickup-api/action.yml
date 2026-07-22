@@ -1,5 +1,5 @@
 name: ClickUp API
-description: Calls the ClickUp API (get/set status, guarded set, comment, bulk mark-done). Failures emit warnings, never fail the job.
+description: Calls the ClickUp API (get/set status, guarded set, comment, set custom field, bulk mark-done). Failures emit warnings, never fail the job.
 inputs:
   token:
     description: ClickUp API token
@@ -8,13 +8,16 @@ inputs:
     description: ClickUp workspace (team) ID
     required: true
   operation:
-    description: get-status | set-status | set-status-guarded | comment | mark-done-many
+    description: get-status | set-status | set-status-guarded | comment | set-field | mark-done-many
     required: true
   task-id:
     description: Task custom ID (e.g. DEV-970). For mark-done-many, newline-separated list.
     required: true
+  field-id:
+    description: Custom field ID (set-field only)
+    default: ""
   value:
-    description: Status name (set operations) or comment text (comment)
+    description: Status name (set operations), comment text (comment), or field value (set-field)
     default: ""
 outputs:
   ok:
@@ -39,6 +42,7 @@ runs:
         CLICKUP_TEAM_ID: ${{ inputs.team-id }}
         OPERATION: ${{ inputs.operation }}
         TASK_ID: ${{ inputs.task-id }}
+        FIELD_ID: ${{ inputs.field-id }}
         VALUE: ${{ inputs.value }}
       run: |
         case "$OPERATION" in
@@ -46,6 +50,8 @@ runs:
             bash "$GITHUB_ACTION_PATH/clickup.sh" get-status "$TASK_ID" >> "$GITHUB_OUTPUT" ;;
           set-status | set-status-guarded | comment)
             bash "$GITHUB_ACTION_PATH/clickup.sh" "$OPERATION" "$TASK_ID" "$VALUE" >> "$GITHUB_OUTPUT" ;;
+          set-field)
+            bash "$GITHUB_ACTION_PATH/clickup.sh" set-field "$TASK_ID" "$FIELD_ID" "$VALUE" >> "$GITHUB_OUTPUT" ;;
           mark-done-many)
             bash "$GITHUB_ACTION_PATH/clickup.sh" mark-done-many "$TASK_ID" "$VALUE" >> "$GITHUB_OUTPUT" ;;
           *)

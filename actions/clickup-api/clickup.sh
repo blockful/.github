@@ -7,6 +7,7 @@
 #   set-status <task_id> "<status>"           -> ok=
 #   set-status-guarded <task_id> "<status>"   -> ok=, applied= (skips when current order >= target order)
 #   comment <task_id> "<text>"                -> ok=
+#   set-field <task_id> <field_id> "<value>"  -> ok= (sets a custom field value)
 #   mark-done-many "<ids newline-separated>" "<status>" -> loops set-status-guarded, single aggregated ok=
 #
 # Env: CLICKUP_TOKEN, CLICKUP_TEAM_ID (required for API subcommands)
@@ -75,6 +76,15 @@ comment() { # task_id text -> ok=
   fi
 }
 
+set_field() { # task_id field_id value -> ok=
+  if req POST "/task/$1/field/$2?$QS" "$(jq -n --arg v "$3" '{value: $v}')" >/dev/null; then
+    echo "::notice::ClickUp: $1 field $2 -> $3" >&2
+    echo "ok=true"
+  else
+    echo "ok=false"
+  fi
+}
+
 mark_done_many() { # newline-separated ids, status -> single ok= line
   local all_ok=true task out
   while IFS= read -r task; do
@@ -85,7 +95,7 @@ mark_done_many() { # newline-separated ids, status -> single ok= line
   echo "ok=$all_ok"
 }
 
-usage() { echo "usage: clickup.sh status-order|get-status|set-status|set-status-guarded|comment|mark-done-many" >&2; exit 2; }
+usage() { echo "usage: clickup.sh status-order|get-status|set-status|set-status-guarded|comment|set-field|mark-done-many" >&2; exit 2; }
 
 cmd="${1:-}"; shift || true
 case "$cmd" in
@@ -94,6 +104,7 @@ case "$cmd" in
   set-status)         [ $# -ge 2 ] || usage; set_status "$1" "$2" ;;
   set-status-guarded) [ $# -ge 2 ] || usage; set_status_guarded "$1" "$2" ;;
   comment)            [ $# -ge 2 ] || usage; comment "$1" "$2" ;;
+  set-field)          [ $# -ge 3 ] || usage; set_field "$1" "$2" "$3" ;;
   mark-done-many)     [ $# -ge 2 ] || usage; mark_done_many "$1" "$2" ;;
   *) usage ;;
 esac
