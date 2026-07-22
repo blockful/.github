@@ -18,9 +18,9 @@ Syncs ClickUp tasks with GitHub activity. What it does:
 
 \* Guarded: never downgrades a task already at an equal or higher status order.
 
-On top of that: it comments the PR link on the task when the PR opens, and emits a
-non-blocking warning when a PR references no task. Bot PRs (dependabot,
-github-actions, renovate, "Version Packages") are ignored.
+On top of that: it fills the task's "PR" custom field (URL type) with the PR link
+when the PR opens, and emits a non-blocking warning when a PR references no task.
+Bot PRs (dependabot, github-actions, renovate, "Version Packages") are ignored.
 
 The task ID is extracted from the branch name, falling back to the PR title and body.
 
@@ -62,7 +62,9 @@ The task ID is extracted from the branch name, falling back to the PR title and 
    overriding `task_prefix`, `team_id`, and the `status_*` inputs — on **both**
    jobs: the PR sync inputs live in `.github/workflows/clickup-pr-sync.yaml` and
    the release sync ones (`status_done` etc.) in
-   `.github/workflows/clickup-release-sync.yaml`.
+   `.github/workflows/clickup-release-sync.yaml`. Spaces with a different PR link
+   field can override `pr_link_field_id` (the ID of a URL-type custom field);
+   pass `""` to disable the PR link entirely.
 4. Repos that merge PRs straight into `main` (no `dev` branch): pass
    `dev_branch: main` in the `pr-sync` job's `with:`, otherwise the
    "PR merged → qa" transition never fires.

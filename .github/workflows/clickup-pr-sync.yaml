@@ -24,6 +24,11 @@ on:
       status_merged:
         type: string
         default: "[9] approved by qa 🏳️‍🌈"
+      # URL-type custom field that receives the PR link when the PR opens.
+      # Pass "" to disable. Default: the Tech space's "PR" field.
+      pr_link_field_id:
+        type: string
+        default: "9f506a7e-5f5b-4efb-9055-0937d346c514"
     secrets:
       clickup_token:
         required: true
@@ -52,7 +57,7 @@ jobs:
           DEV_BRANCH: ${{ inputs.dev_branch }}
         run: |
           scenario=none
-          comment=false
+          pr_link=false
           branch=""
           case "$EVENT_NAME" in
             create)
@@ -61,9 +66,9 @@ jobs:
               branch="$HEAD_REF"
               case "$ACTION" in
                 opened)
-                  if [ "$DRAFT" = "true" ]; then scenario=in_progress; else scenario=code_review; comment=true; fi ;;
+                  if [ "$DRAFT" = "true" ]; then scenario=in_progress; else scenario=code_review; pr_link=true; fi ;;
                 ready_for_review)
-                  scenario=code_review; comment=true ;;
+                  scenario=code_review; pr_link=true ;;
                 synchronize)
                   scenario=maybe_back_to_review ;;
                 closed)
@@ -75,7 +80,7 @@ jobs:
           esac
           {
             echo "scenario=$scenario"
-            echo "comment=$comment"
+            echo "pr_link=$pr_link"
             echo "branch=$branch"
           } >> "$GITHUB_OUTPUT"
 
@@ -93,7 +98,7 @@ jobs:
       - name: Warn when PR has no task reference
         if: >-
           steps.scenario.outputs.scenario != 'none' &&
-          steps.scenario.outputs.comment == 'true' &&
+          steps.scenario.outputs.pr_link == 'true' &&
           steps.task.outputs.found != 'true' &&
           steps.task.outputs.skip-reason == 'none'
         env:
@@ -156,14 +161,16 @@ jobs:
           task-id: ${{ steps.task.outputs.task-id }}
           value: ${{ steps.target.outputs.target }}
 
-      - name: Comment PR link on task
+      - name: Set PR link custom field on task
         if: >-
           steps.task.outputs.found == 'true' &&
-          steps.scenario.outputs.comment == 'true'
+          steps.scenario.outputs.pr_link == 'true' &&
+          inputs.pr_link_field_id != ''
         uses: blockful/.github/actions/clickup-api@main
         with:
           token: ${{ secrets.clickup_token }}
           team-id: ${{ inputs.team_id }}
-          operation: comment
+          operation: set-field
           task-id: ${{ steps.task.outputs.task-id }}
-          value: "🔗 PR opened by ${{ github.actor }}: ${{ github.event.pull_request.title }} — ${{ github.event.pull_request.html_url }}"
+          field-id: ${{ inputs.pr_link_field_id }}
+          value: ${{ github.event.pull_request.html_url }}
